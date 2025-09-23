@@ -21,22 +21,32 @@ class JsonDetectionDataset(Dataset):
 
     def __getitem__(self, idx):
         ann_file = self.files[idx]
-        with open(os.path.join(self.ann_dir, ann_file)) as f:
+        ann_path = os.path.join(self.ann_dir, ann_file)
+        with open(ann_path) as f:
             ann = json.load(f)
 
-        # Load image
-        img_name = os.path.splitext(ann_file)[0] + ".jpg"  # adjust if png
+        # Remove only the '.json' to get correct image filename
+        img_name = ann_file[:-5]  # strips '.json'
         img_path = os.path.join(self.img_dir, img_name)
+
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"Image not found for annotation: {ann_file}")
+
         img = Image.open(img_path).convert("RGB")
 
         # Extract boxes and labels
         boxes = []
         labels = []
-        for obj in ann["objects"]:
-            cls = obj["classTitle"]
+        for obj in ann.get("objects", []):
+            cls = obj.get("classTitle")
             if cls not in CLASS_MAP:
                 continue
-            (x_min, y_min), (x_max, y_max) = obj["points"]["exterior"]
+
+            exterior = obj.get("points", {}).get("exterior", [])
+            if len(exterior) != 2:
+                continue  # skip invalid bboxes
+
+            (x_min, y_min), (x_max, y_max) = exterior
             boxes.append([x_min, y_min, x_max, y_max])
             labels.append(CLASS_MAP[cls])
 
