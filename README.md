@@ -1,77 +1,187 @@
 # 🛡️ Real-Time Weapon Detection System for Security Surveillance
 
-This project is a computer vision system designed to enhance public safety by detecting dangerous weapons in real-time surveillance footage. By leveraging deep learning, the system identifies potential security threats, allowing for proactive intervention before incidents occur.
+This project is a computer vision system designed to detect weapons in video streams or files. It is intended to enhance public safety by identifying dangerous objects such as firearms in real-time or pre-recorded surveillance footage.
 
------
+---
 
 ## 🎯 Target Weapons for Detection
 
-The model is trained to identify specific categories of weapons while minimizing false alarms from harmless objects.
+The system can detect the following:
 
-#### **Primary Weapon Classes (Required)**
+- **Primary Weapon Classes (Required)**
+  - 🔫 **Firearms**: handguns, pistols, rifles.
+  - ✅ **No Weapon**: normal or safe scenarios.
 
-  * 🔫 **Firearms**: Includes handguns, pistols, and rifles.
-  * ✅ **No Weapon**: Represents normal, safe scenarios for baseline comparison and reducing false positives.
 
-#### **Advanced Categories (Bonus Points)**
+> **Note:** The system is trained to minimize false alarms from harmless objects, such as toys
 
-  * 🔪 **Improvised Weapons**: Objects that can be used as weapons, such as broken bottles and metal rods.
+---
 
-> **Note:** A key challenge is to distinguish between actual threats and visually similar, harmless objects (e.g., a toy gun, a kitchen knife in a restaurant). The system is being developed to understand context and minimize false alarms.
+## 🔧 Project Modules
 
------
+### 1️⃣ `video_inference.py`
+- **Purpose:** Processes a video and produces an output video with red bounding boxes around detected weapons.
+- **How it works:**
+  - Loads the trained Faster R-CNN model (`detector_epochX.pth`).
+  - Reads a video file frame by frame.
+  - Runs object detection on each frame.
+  - Draws bounding boxes and class labels on detected weapons.
+  - Saves the resulting video as `.avi` or `.mp4`.
+- **Configurable paths:**
+  ```python
+  input_video_path = "input_video.mp4"  # Set your original video here
+  output_video_path = "output.avi"      # Video with weapon detections
+  checkpoint_path = "models/detector_epoch3.pth"  # Trained model path
+* **Run Command:**
 
-## 🔧 Core Requirements
+  ```bash
+  python src/video_inference.py
+  ```
 
-The project is built upon three main modules that form a complete video analysis pipeline.
 
-1.  **Data Processing Module**
 
-      * Handles various video inputs (e.g., live streams, pre-recorded files).
-      * Responsible for efficient frame extraction and pre-processing for the model.
+### 2️⃣ `extract_weapon_frames.py`
 
-2.  **Model Implementation**
+* **Purpose:** Extracts frames from a video where weapons are detected, and saves them as images with bounding boxes applied.
+* **How it works:**
 
-      * Utilizes a deep learning model (e.g., YOLO, SSD, or a custom CNN) for robust object detection and classification.
-      * The model is trained to accurately classify the target weapon classes.
+  * Loads the trained Faster R-CNN model.
+  * Reads the input video frame by frame.
+  * For frames with weapons detected above a confidence threshold, saves the frame to a folder.
+  * Names the frames with the timestamp in seconds where the weapon appears.
+* **Configurable paths:**
 
-3.  **Video Analysis Pipeline**
+  ```python
+  input_video_path = "input_video.mp4"   # Original video path
+  frames_output_dir = "weapon_frames/"   # Folder to save extracted frames
+  checkpoint_path = "models/detector_epoch3.pth"  # Trained model
+  ```
+* **Run Command:**
 
-      * Integrates the data processing and modeling modules into a seamless pipeline.
-      * Processes video files or streams and generates real-time threat detection results, including bounding boxes and threat labels.
+  ```bash
+  python src/extract_weapon_frames.py
+  ```
+* **Output:** Each frame image contains red boxes around weapons and is named as `frame_XXs.jpg`.
 
------
+---
 
-## 📅 Timeline & Submission
+### 3️⃣ `train_detector.py`
 
-  * **Deadline**: September 21, 2025, 11:59 PM IST
-  * **Submission Format**: A link to a public GitHub repository containing the complete source code, trained models, and detailed documentation.
+* **Purpose:** Train the Faster R-CNN model on your annotated dataset.
+* **How it works:**
 
------
+  * Reads images and JSON annotations from `data/train` and `data/val`.
+  * Creates a PyTorch dataset using `JsonDetectionDataset`.
+  * Trains a Faster-RCNN model.
+  * Saves checkpoints periodically and after each epoch.
+* **Configurable paths & params:**
 
-## 🚀 Getting Started
+  ```bash
+  python src/train_detector.py --data-dir data --epochs 5 --batch-size 2 --device cuda
+  ```
+* **Resume Training from Checkpoint:**
 
-### **Prerequisites**
+  ```bash
+  python src/train_detector.py --data-dir data --epochs 5 --batch-size 2 --device cuda --resume models/checkpoint_epoch2_batch1000.pth
+  ```
 
-A list of software and libraries required to run the project.
+---
 
-  * Python 3.8+
-  * OpenCV
-  * TensorFlow / PyTorch
-  * NumPy
+
+## ⚙️ Installation & Setup
 
 ### **Installation**
-
-A step-by-step guide to get the development environment running.
 
 ```bash
 # Clone the repository
 git clone https://github.com/Pushkkaarr/weapon-detection-system.git
 
-# Navigate to the project directory
+# Navigate to the project folder
 cd weapon-detection
 
-# Install the required packages
+# Install dependencies
 pip install -r requirements.txt
 ```
+
+---
+
+## 🗂️ Directory Structure
+
+```
+weapon-detection/
+│
+├─ src/
+│   ├─ train_detector.py          # Training script
+│   ├─ video_inference.py        # Weapon detection on videos
+│   ├─ extract_weapon_frames.py  # Extract frames with weapons
+│   ├─ evaluate_model.py         # Evaluate accuracy
+│   └─ dataset.py                # JsonDetectionDataset class
+│
+├─ data/
+│   ├─ train/images/             # Training images
+│   ├─ train/labels/             # JSON annotations
+│   ├─ val/images/               # Validation images
+│   └─ val/labels/               # JSON annotations
+│
+├─ models/                       # Saved model checkpoints
+├─ weapon_frames/                # Extracted frames with weapons
+└─ README.md
+```
+
+---
+
+## 📝 How to Update Paths
+
+* **Videos:** Change `input_video_path` in `video_inference.py` and `extract_weapon_frames.py` to the video you want to process.
+* **Output folder:** Change `output_video_path` or `frames_output_dir` in the scripts.
+* **Trained Model:** Ensure the correct checkpoint is loaded (`detector_epochX.pth`).
+
+---
+
+## 🚀 Running the System
+
+1. **Train the model (optional if already trained):**
+
+   ```bash
+   python src/train_detector.py --data-dir data --epochs 5 --batch-size 2 --device cuda
+   ```
+
+2. **Evaluate model accuracy:**
+
+   ```bash
+   python src/evaluate_model.py
+   ```
+
+3. **Detect weapons in video:**
+
+   ```bash
+   python src/video_inference.py
+   ```
+
+4. **Extract frames with detected weapons:**
+
+   ```bash
+   python src/extract_weapon_frames.py
+   ```
+
+---
+
+## 📂 Output
+
+* **Video Showing the video processing and actual execution of model:**
+(Video is compressed , hence low quality)
+
+https://github.com/user-attachments/assets/95e69b89-df52-4771-8398-c9480013dfc0
+
+
+
+* **Weapon Detection Video:** Saved at `output.avi` or your configured path in `video_inference.py`.
+* 
+
+https://github.com/user-attachments/assets/1b8fa097-8a50-4812-a261-809f0ff177b0
+
+
+* **Weapon Frames:** Saved in `weapon_frames/` with names like `frame_12s.jpg` for frame at 12 seconds where a weapon is detected.
+* <img width="1688" height="833" alt="image" src="https://github.com/user-attachments/assets/b0ee3316-799f-4e18-b0a8-d1f550edcb95" />
+
 
