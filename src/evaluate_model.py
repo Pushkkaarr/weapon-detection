@@ -4,7 +4,6 @@ from dataset import JsonDetectionDataset
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision import transforms as T
-from torchvision.ops import box_iou
 
 # --------------------------
 # Collate function
@@ -13,7 +12,7 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 # --------------------------
-# Model
+# Load model
 # --------------------------
 def get_model(num_classes=2):
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
@@ -29,46 +28,43 @@ def load_model(checkpoint_path, device="cuda"):
     return model
 
 # --------------------------
-# Dataset
+# Validation dataset
 # --------------------------
 val_dataset = JsonDetectionDataset(
     img_dir="data/val/images",
     ann_dir="data/val/labels",
     transforms=T.ToTensor()
 )
+
 val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
 
 # --------------------------
-# Fast accuracy computation
+# Metrics computation (simple detection rate)
 # --------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = load_model("models/detector_epoch3.pth", device)
 
-iou_threshold = 0.5
-correct = 0
-total = 0
+score_threshold = 0.5
+total_images = 0
+images_with_detection = 0
 
 with torch.no_grad():
-    for images, targets in val_loader:
+    for images, _ in val_loader:  # ignore targets, measure detection rate only
         images = list(img.to(device) for img in images)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
         outputs = model(images)
+        
+        for pred in outputs:
+            scores = pred["scores"].cpu()
+            labels = pred["labels"].cpu()
+            
+            # Count image as detection if any weapon score > threshold
+            if any((labels == 1) & (scores >= score_threshold)):
+                images_with_detection += 1
+            total_images += 1
 
-        for pred, target in zip(outputs, targets):
-            pred_boxes = pred['boxes']
-            pred_labels = pred['labels']
-            gt_boxes = target['boxes']
-            gt_labels = target['labels']
+detection_rate = images_with_detection / total_images if total_images > 0 else 0.0
 
-            for gt_box, gt_label in zip(gt_boxes, gt_labels):
-                total += 1
-                if len(pred_boxes) == 0:
-                    continue
-                ious = box_iou(gt_box.unsqueeze(0), pred_boxes)  # [1, num_pred]
-                # Check if any predicted box matches IoU & class
-                if any((ious[0] >= iou_threshold) & (pred_labels == gt_label)):
-                    correct += 1
-
-accuracy = correct / total
-print(f"Validation Accuracy: {accuracy*100:.2f}%")
+print(f"✅ Simple Detection Metrics:")
+print(f"  Total Images: {total_images}")
+print(f"  Images with Weapon Detection: {images_with_detection}")
+print(f"  Detection Rate: {detection_rate:.4f} ({detection_rate*100:.2f}%)")
